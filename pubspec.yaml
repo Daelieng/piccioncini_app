@@ -1,0 +1,36 @@
+name: piccioncini_app
+description: A Flutter application for emotion tracking with BLE and server communication.
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=2.18.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # BLE Communication
+  flutter_blue_plus: ^1.12.13
+  permission_handler: ^11.0.1
+  
+  # Data Persistence
+  shared_preferences: ^2.2.2
+  
+  # HTTP Requests
+  http: ^1.1.0
+  
+  # UI Icons
+  cupertino_icons: ^1.0.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+  
+  assets:
+    - assets/female_img.png
+    - assets/male_img.png
