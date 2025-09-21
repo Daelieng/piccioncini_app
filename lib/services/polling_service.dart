@@ -7,6 +7,7 @@ class PollingService {
   Timer? _timer;
   Function(StatusDataPoint)? onDataReceived;
   Function(String)? onError;
+  Function(bool)? onConnectionStatusChanged; // AGGIUNTO
   
   bool _isRunning = false;
   List<StatusDataPoint> _dataHistory = [];
@@ -91,6 +92,13 @@ class PollingService {
     print('$bar $status');
   }
 
+  // AGGIUNTO: Metodo per forzare aggiornamento
+  Future<void> forceUpdate() async {
+    if (_isRunning) {
+      print('🔄 Aggiornamento forzato...');
+      await _fetchData();
+    }
+  }
 
   void dispose() {
     stopPolling();

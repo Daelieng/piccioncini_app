@@ -1,6 +1,6 @@
 class WiFiConstants {
   // Configurazione Server
-  static const String BASE_URL = "http://10.222.55.59:5000";
+  static const String BASE_URL = "http://192.168.1.232:5000";
   static const String DEVICE_ID = "1"; // Modifica questo ID se necessario
   
   // Endpoints API

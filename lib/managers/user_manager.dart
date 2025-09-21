@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class UserManager extends ChangeNotifier {
@@ -11,6 +12,21 @@ class UserManager extends ChangeNotifier {
   static const String _selectedUserKey = 'selected_user_index';
 
   int get selectedUserIndex => _selectedUserIndex;
+
+  // AGGIUNTO: Metodi per i nomi utenti
+  String getUserName(int userIndex) {
+    switch (userIndex) {
+      case 0:
+        return "Femmina";
+      case 1:
+        return "Maschio";
+      default:
+        return "Utente ${userIndex + 1}";
+    }
+  }
+
+  // AGGIUNTO: Per compatibilità con il nuovo codice
+  int get totalUsers => 2;
 
   /// Inizializza il manager caricando le preferenze salvate
   Future<void> initialize() async {
@@ -63,4 +79,5 @@ class UserManager extends ChangeNotifier {
   bool shouldShowControls(int userIndex) {
     return isUserSelected(userIndex);
   }
+
 }

@@ -4,6 +4,7 @@ import '../services/polling_service.dart';
 import '../managers/emotion_manager.dart';
 import '../managers/user_manager.dart';
 import '../models/server_models.dart';
+import '../models/emotion_state.dart';
 import '../widgets/emotion_box_widget.dart';
 import '../widgets/image_box_widget.dart';
 import '../widgets/wifi_dialog.dart';
@@ -24,6 +25,10 @@ class _HomeScreenState extends State<HomeScreen> {
   
   bool _isLoading = false;
   List<StatusDataPoint> _statusHistory = [];
+  
+  // Stato corrente dei dati dal server
+  StatusDataPoint? _currentStatus;
+  bool _hasServerData = false;
 
   @override
   void initState() {
@@ -43,6 +48,7 @@ class _HomeScreenState extends State<HomeScreen> {
     // Setup callbacks per polling
     _pollingService.onDataReceived = _onStatusDataReceived;
     _pollingService.onError = _showSnackBar;
+    // RIMOSSO: _pollingService.onConnectionStatusChanged = _onServerConnectionChanged;
     
     // Listen to emotion changes
     _emotionManager.addListener(() {
@@ -74,7 +80,45 @@ class _HomeScreenState extends State<HomeScreen> {
       if (_statusHistory.length > 20) {
         _statusHistory.removeAt(0);
       }
+      
+      // Aggiorna lo stato corrente
+      _currentStatus = dataPoint;
+      _hasServerData = true;
+      
+      print('🔄 Dati aggiornati - ${_userManager.getUserName(0)}: ${dataPoint.battery1}%, ${dataPoint.emotion1}');
+      print('🔄 Dati aggiornati - ${_userManager.getUserName(1)}: ${dataPoint.battery2}%, ${dataPoint.emotion2}');
     });
+  }
+
+  // Metodi helper per ottenere i dati corretti in base all'utente
+  double _getBatteryForUser(int userIndex) {
+    if (!_hasServerData || _currentStatus == null) {
+      return 50.0; // Valore di default quando non abbiamo dati
+    }
+    return userIndex == 0 ? _currentStatus!.battery1 : _currentStatus!.battery2;
+  }
+
+  String _getEmotionForUser(int userIndex) {
+    if (!_hasServerData || _currentStatus == null) {
+      // Se non abbiamo dati dal server, usa l'emozione locale selezionata
+      return _emotionManager.emotions[_emotionManager.selectedEmotionIndex[userIndex]].label;
+    }
+    return userIndex == 0 ? _currentStatus!.emotion1 : _currentStatus!.emotion2;
+  }
+
+  Color _getColorForUser(int userIndex) {
+    if (!_hasServerData || _currentStatus == null) {
+      // Se non abbiamo dati dal server, usa il colore locale selezionato
+      return _emotionManager.emotions[_emotionManager.selectedEmotionIndex[userIndex]].color;
+    }
+    return userIndex == 0 ? _currentStatus!.color1 : _currentStatus!.color2;
+  }
+
+  bool _getOnlineStatusForUser(int userIndex) {
+    if (!_hasServerData || _currentStatus == null) {
+      return false; // Assume offline se non abbiamo dati
+    }
+    return userIndex == 0 ? _currentStatus!.online1 : _currentStatus!.online2;
   }
 
   void _showSnackBar(String message) {
@@ -87,13 +131,11 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // Richiedi permessi
       if (!await _bleService.requestPermissions()) {
         _showSnackBar("Permessi Bluetooth non concessi");
         return;
       }
 
-      // Cerca dispositivo
       final device = await _bleService.scanForDevice("Piccioncino_Ila");
       
       if (device != null) {
@@ -187,13 +229,21 @@ class _HomeScreenState extends State<HomeScreen> {
             flex: 4,
             child: EmotionBoxWidget(
               boxColor: boxColor,
-              emotion: _emotionManager.emotions[
-                _emotionManager.selectedEmotionIndex[userIndex]
-              ],
+              userName: _userManager.getUserName(userIndex),
+              // Per l'utente selezionato usa l'emozione locale, per quello non selezionato usa quella dal server
+              emotion: isSelected 
+                ? _emotionManager.emotions[_emotionManager.selectedEmotionIndex[userIndex]]
+                : EmotionState(
+                    label: _getEmotionForUser(userIndex),
+                    color: _getColorForUser(userIndex),
+                  ),
+              batteryLevel: _getBatteryForUser(userIndex),
+              isOnline: _getOnlineStatusForUser(userIndex),
+              hasServerData: _hasServerData,
               isBluetoothConnected: _bleService.isConnected,
               isLoading: _isLoading,
-              showControlButtons: showControls, // Usa il parametro corretto del tuo widget
-              onEmotionTap: () => _showEmotionPicker(userIndex),
+              showControlButtons: showControls,
+              onEmotionTap: isSelected ? () => _showEmotionPicker(userIndex) : null,
               onBluetoothTap: showControls ? _toggleBluetoothConnection : null,
               onWifiTap: showControls ? _sendWifiCommand : null,
             ),
@@ -211,9 +261,24 @@ class _HomeScreenState extends State<HomeScreen> {
       scaffoldMessengerKey: _scaffoldMessengerKey,
       home: Scaffold(
         appBar: AppBar(
-          title: Text(
-            "Piccioncini App",
-            style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                "Piccioncini App",
+                style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)
+              ),
+              SizedBox(width: 8),
+              // Indicatore di connessione al server con tap per forzare aggiornamento
+              GestureDetector(
+                onTap: () => _pollingService.forceUpdate(),
+                child: Icon(
+                  _hasServerData ? Icons.cloud_done : Icons.cloud_off,
+                  color: _hasServerData ? Colors.green : Colors.red,
+                  size: 20,
+                ),
+              ),
+            ],
           ),
           backgroundColor: Colors.white,
           centerTitle: true,
@@ -223,12 +288,12 @@ class _HomeScreenState extends State<HomeScreen> {
           padding: const EdgeInsets.all(16),
           child: Column(
             children: [
-              // Riga utente 1 (femmina)
+              // Utente 1 (femmina)
               _buildUserRow(0, 'assets/female_img.png', Colors.blue[200]!),
               
               SizedBox(height: 16),
               
-              // Riga utente 2 (maschio)
+              // Utente 2 (maschio)  
               _buildUserRow(1, 'assets/male_img.png', Colors.green[200]!),
             ],
           ),

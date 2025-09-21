@@ -4,9 +4,13 @@ import '../models/emotion_state.dart';
 class EmotionBoxWidget extends StatelessWidget {
   final Color boxColor;
   final EmotionState emotion;
+  final double batteryLevel; // NUOVO
+  final bool isOnline; // NUOVO
+  final bool hasServerData; // NUOVO
+  final String? userName; // NUOVO: aggiunto per compatibilità
   final bool isBluetoothConnected;
   final bool isLoading;
-  final VoidCallback onEmotionTap;
+  final VoidCallback? onEmotionTap; // MODIFICATO: ora può essere null
   final VoidCallback? onBluetoothTap;
   final VoidCallback? onWifiTap;
   final bool showControlButtons;
@@ -15,13 +19,47 @@ class EmotionBoxWidget extends StatelessWidget {
     Key? key,
     required this.boxColor,
     required this.emotion,
+    this.batteryLevel = 50.0, // NUOVO: default 50%
+    this.isOnline = false, // NUOVO: default offline
+    this.hasServerData = false, // NUOVO: default nessun dato server
+    this.userName, // NUOVO: parametro opzionale per il nome utente
     required this.isBluetoothConnected,
     required this.isLoading,
-    required this.onEmotionTap,
+    this.onEmotionTap, // MODIFICATO: ora opzionale
     this.onBluetoothTap,
     this.onWifiTap,
     this.showControlButtons = true,
   }) : super(key: key);
+
+  // NUOVO: Metodo per ottenere il colore della batteria in base al livello
+  Color _getBatteryColor() {
+    if (batteryLevel > 80) return Colors.green;
+    if (batteryLevel > 60) return Colors.lightGreen;
+    if (batteryLevel > 40) return Colors.orange;
+    if (batteryLevel > 20) return Colors.deepOrange;
+    return Colors.red;
+  }
+
+  // NUOVO: Metodo per ottenere l'icona dello stato di connessione
+  Widget _getConnectionIcon() {
+    if (!hasServerData) {
+      return Icon(Icons.cloud_off, color: Colors.grey, size: 16);
+    }
+    return Icon(
+      isOnline ? Icons.wifi : Icons.wifi_off,
+      color: isOnline ? Colors.green : Colors.red,
+      size: 16,
+    );
+  }
+
+  // NUOVO: Metodo per formattare il nome utente con stato
+  String _getUserDisplayName() {
+    final name = userName ?? "Nome"; // Usa userName se fornito, altrimenti "Nome"
+    if (!hasServerData) {
+      return name; // Default quando non abbiamo dati
+    }
+    return isOnline ? name : "$name";  //return isOnline ? name : "$name (offline)";
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -41,33 +79,86 @@ class EmotionBoxWidget extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          Text(
-            "Nome", 
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)
+          // MODIFICATO: Nome utente con indicatore di connessione
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                _getUserDisplayName(), 
+                style: TextStyle(
+                  fontSize: 18, 
+                  fontWeight: FontWeight.bold,
+                  color: hasServerData && !isOnline ? Colors.grey[600] : Colors.black,
+                )
+              ),
+              SizedBox(width: 8),
+              _getConnectionIcon(),
+            ],
           ),
-          Container(
-            height: 4,
-            margin: EdgeInsets.symmetric(vertical: 8),
-            child: LinearProgressIndicator(
-              value: 0.5,
-              backgroundColor: Colors.grey[300],
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.green),
-            ),
+          
+          // MODIFICATO: Barra della batteria con colore dinamico
+          Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    "Batteria", 
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600])
+                  ),
+                  Text(
+                    "${batteryLevel.toStringAsFixed(0)}%", 
+                    style: TextStyle(
+                      fontSize: 12, 
+                      fontWeight: FontWeight.bold,
+                      color: _getBatteryColor()
+                    )
+                  ),
+                ],
+              ),
+              SizedBox(height: 4),
+              Container(
+                height: 6,
+                child: LinearProgressIndicator(
+                  value: batteryLevel / 100,
+                  backgroundColor: Colors.grey[300],
+                  valueColor: AlwaysStoppedAnimation<Color>(_getBatteryColor()),
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+            ],
           ),
+          
+          // MODIFICATO: Container dell'emozione con gestione del tap
           GestureDetector(
-            onTap: onEmotionTap,
+            onTap: onEmotionTap, // Può essere null per l'utente non selezionato
             child: Container(
               padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
               decoration: BoxDecoration(
                 color: emotion.color,
                 borderRadius: BorderRadius.circular(16),
+                // NUOVO: Bordo per indicare se è interattivo
+                border: onEmotionTap != null 
+                  ? Border.all(color: Colors.white.withOpacity(0.3), width: 1)
+                  : null,
               ),
-              child: Text(
-                emotion.label,
-                style: TextStyle(color: Colors.white, fontSize: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    emotion.label,
+                    style: TextStyle(color: Colors.white, fontSize: 16),
+                  ),
+                  // NUOVO: Icona per indicare se l'emozione è modificabile
+                  if (onEmotionTap != null) ...[
+                    SizedBox(width: 8),
+                    Icon(Icons.edit, color: Colors.white.withOpacity(0.7), size: 16),
+                  ],
+                ],
               ),
             ),
           ),
+          
           // Pulsanti mostrati solo se showControlButtons è true
           if (showControlButtons) ...[
             Row(
